@@ -1,0 +1,10 @@
+{
+  "name": "@x8r/manga",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "bun run server.ts"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0"
+  }
+}
