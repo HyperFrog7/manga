@@ -65,25 +65,28 @@ export function parseList(html: string, page: number, imgPrefix = "/img") {
   };
 }
 
-export function parseLatest(html: string, imgPrefix = "/img") {
+export function parseTrending(html: string, imgPrefix = "/img") {
   const $ = cheerio.load(html);
+  const heading = $("h4")
+    .filter((_, el) => text($(el).text()).toLowerCase() === "trending mangas")
+    .first();
+  const container = heading.closest(".container");
   const seen = new Set<string>();
   const items: { id: string; title: string; cover: string }[] = [];
-  $("a[href^='/chapters/'] img[data-src]").each((_, img) => {
-    const link = $(img)
-      .closest("a")
-      .parent()
-      .find("a[href^='/manga/']")
-      .first();
-    const match = (link.attr("href") || "").match(
-      /^\/manga\/(\d+)\/([^/?#]+)$/,
-    );
-    if (!match || seen.has(match[0])) return;
-    seen.add(match[0]);
-    const src = $(img).attr("data-src") || "";
+  if (!container.length) return { total: 0, items, next: null };
+  container.find("a[href^='/manga/']").each((_, link) => {
+    const href = $(link).attr("href") || "";
+    const match = href.match(/^\/manga\/(\d+)\/([^/?#]+)$/);
+    const card = $(link).parent();
+    const img = card.find("figure img").first();
+    if (!match || !img.length || seen.has(href)) return;
+    seen.add(href);
+    const title =
+      text(card.find(".font-black").first().text()) || text(img.attr("alt"));
+    const src = img.attr("data-src") || img.attr("src") || "";
     items.push({
       id: `${match[1]}/${match[2]}`,
-      title: text(link.text()) || match[2],
+      title: title || match[2],
       cover: isAllowedImage(src) ? proxiedImage(src, imgPrefix) : "",
     });
   });
@@ -233,12 +236,12 @@ export async function proxyPill(
           return { status: 200, body: { total: 0, items: [], next: null } };
         const home = await page(fetchImpl, "/");
         if (!home) return notFound;
-        const latest = parseLatest(home, imgPrefix);
+        const trending = parseTrending(home, imgPrefix);
         return {
           status: 200,
           body: {
-            ...latest,
-            items: await onlySafe(latest.items, fetchImpl, imgPrefix),
+            ...trending,
+            items: await onlySafe(trending.items, fetchImpl, imgPrefix),
           },
         };
       }
