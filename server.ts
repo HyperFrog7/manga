@@ -4,13 +4,20 @@ import { proxyPill, proxyImage } from "./mangapill";
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
 const IMG_PREFIX = process.env.IMG_PREFIX || "/img";
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-headers": "content-type",
+};
 
 function json(data: unknown, status = 200, cache = true): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "cache-control": status === 200 && cache ? "public, max-age=300" : "no-store",
+      "cache-control":
+        status === 200 && cache ? "public, max-age=300" : "no-store",
+      ...CORS,
     },
   });
 }
@@ -19,15 +26,23 @@ async function handle(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const { pathname } = url;
 
+  if (req.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: CORS });
+
   if (req.method !== "GET")
-    return new Response("Method not allowed", { status: 405 });
+    return new Response("Method not allowed", { status: 405, headers: CORS });
 
   if (pathname === "/img") {
     return proxyImage(url.searchParams.get("u") || "");
   }
 
   if (pathname.startsWith("/pill/")) {
-    const result = await proxyPill(pathname, url.searchParams, fetch, IMG_PREFIX);
+    const result = await proxyPill(
+      pathname,
+      url.searchParams,
+      fetch,
+      IMG_PREFIX,
+    );
     return json(result.body, result.status);
   }
 
@@ -36,7 +51,8 @@ async function handle(req: Request): Promise<Response> {
     return json(result.body, result.status);
   }
 
-  if (pathname === "/healthz") return new Response("ok");
+  if (pathname === "/healthz")
+    return new Response("ok", { headers: CORS });
 
   return json({ error: "not found" }, 404, false);
 }

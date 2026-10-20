@@ -304,8 +304,12 @@ export async function proxyImage(
   raw: string,
   fetchImpl: Fetch = fetch,
 ): Promise<Response> {
+  const headers = {
+    "access-control-allow-origin": "*",
+    "cross-origin-resource-policy": "cross-origin",
+  };
   const url = isAllowedImage(raw);
-  if (!url) return new Response("Bad image", { status: 400 });
+  if (!url) return new Response("Bad image", { status: 400, headers });
   try {
     const upstream = await fetchImpl(url, {
       headers: { "user-agent": UA, referer: `${SITE}/` },
@@ -313,14 +317,15 @@ export async function proxyImage(
     });
     const type = upstream.headers.get("content-type") || "";
     if (!upstream.ok || !type.startsWith("image/"))
-      return new Response("Upstream error", { status: 502 });
+      return new Response("Upstream error", { status: 502, headers });
     return new Response(upstream.body, {
       headers: {
         "content-type": type,
         "cache-control": "public, max-age=86400",
+        ...headers,
       },
     });
   } catch {
-    return new Response("Upstream error", { status: 502 });
+    return new Response("Upstream error", { status: 502, headers });
   }
 }
