@@ -231,7 +231,8 @@ export async function proxyPill(
         MAX_PAGE,
       );
       const title = (params.get("title") || "").trim().slice(0, 100);
-      if (!title) {
+      const genre = (params.get("genre") || "").trim().slice(0, 50);
+      if (!title && !genre) {
         if (pageNo > 1)
           return { status: 200, body: { total: 0, items: [], next: null } };
         const home = await page(fetchImpl, "/");
@@ -245,17 +246,23 @@ export async function proxyPill(
           },
         };
       }
-      const html = await page(
-        fetchImpl,
-        `/search?q=${encodeURIComponent(title)}&page=${pageNo}`,
-      );
+      const query = new URLSearchParams();
+      if (title) query.set("q", title);
+      if (genre) query.set("genre", genre);
+      query.set("page", String(pageNo));
+      const html = await page(fetchImpl, `/search?${query.toString()}`);
       if (!html) return notFound;
       const list = parseList(html, pageNo, imgPrefix);
+      const limit = Math.min(
+        Math.max(Number(params.get("limit")) || 0, 0),
+        50,
+      );
+      const items = limit > 0 ? list.items.slice(0, limit) : list.items;
       return {
         status: 200,
         body: {
           ...list,
-          items: await onlySafe(list.items, fetchImpl, imgPrefix),
+          items: await onlySafe(items, fetchImpl, imgPrefix),
         },
       };
     }
